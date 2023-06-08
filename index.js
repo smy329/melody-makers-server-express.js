@@ -46,6 +46,7 @@ async function run() {
 
     const usersCollection = client.db('melodyMakersCampDB').collection('users');
     const classesCollection = client.db('melodyMakersCampDB').collection('classes');
+    const instructorsCollection = client.db('melodyMakersCampDB').collection('instructors');
 
     //jwt
     app.post('/jwt', (req, res) => {
@@ -93,21 +94,44 @@ async function run() {
 
     app.post('/users', async (req, res) => {
       const user = req.body;
-      //console.log(user);
       const query = { email: user.email };
-      //console.log(query);
       const existingUser = await usersCollection.findOne(query);
-      //console.log(existingUser);
       if (existingUser) {
         return res.send({ message: 'User already exists ' });
       }
       const result = await usersCollection.insertOne(user);
-      //console.log(result);
       res.send(result);
     });
 
     app.get('/popular-classes', async (req, res) => {
       const result = await classesCollection.find().sort({ enrolledStudents: -1 }).limit(6).toArray();
+      res.send(result);
+    });
+
+    app.get('/popular-instructors', async (req, res) => {
+      const pipeline = [
+        {
+          $lookup: {
+            from: 'classes', // collection to join
+            localField: 'email', //field from the input documents
+            foreignField: 'instructorEmail', //field from the documents of the "from" collection
+            as: 'classData', //output array field
+          },
+        },
+        {
+          $addFields: {
+            totalStudents: { $sum: '$classData.enrolledStudents' }, //add this field into output array
+          },
+        },
+        {
+          $sort: { totalStudents: -1 },
+        },
+        {
+          $limit: 6,
+        },
+      ];
+
+      const result = await instructorsCollection.aggregate(pipeline).toArray();
       res.send(result);
     });
 
