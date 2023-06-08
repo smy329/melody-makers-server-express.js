@@ -45,6 +45,7 @@ async function run() {
     await client.connect();
 
     const usersCollection = client.db('melodyMakersCampDB').collection('users');
+    const classesCollection = client.db('melodyMakersCampDB').collection('classes');
 
     //jwt
     app.post('/jwt', (req, res) => {
@@ -68,6 +69,22 @@ async function run() {
       next();
     };
 
+    app.get('/admin/users/:email', verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      console.log(email);
+
+      if (req.decoded.email !== email) {
+        return res.status(403).status({ error: true, message: 'Access Forbidden' });
+      }
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      //const result = { admin: user?.role === 'admin' };
+      //const result = user?.role === 'admin';
+      const result = { admin: user?.role === 'admin' };
+      console.log(result);
+      res.send(result);
+    });
+
     //users related api
     app.get('/users', verifyJWT, verifyAdmin, async (req, res) => {
       const result = await usersCollection.find().toArray();
@@ -86,6 +103,11 @@ async function run() {
       }
       const result = await usersCollection.insertOne(user);
       //console.log(result);
+      res.send(result);
+    });
+
+    app.get('/popular-classes', async (req, res) => {
+      const result = await classesCollection.find().sort({ enrolledStudents: -1 }).limit(6).toArray();
       res.send(result);
     });
 
