@@ -182,6 +182,17 @@ async function run() {
       res.send(result);
     });
 
+    //delete selected classes from user collection
+    app.patch('/users/selected-class', async (req, res) => {
+      const data = req.body;
+      const query = { email: data.email };
+      const updateUser = {
+        $pull: { selectedClasses: data.classId }, // we use this when we need to pull data into existing array
+      };
+      const result = await usersCollection.findOneAndUpdate(query, updateUser);
+      res.send(result);
+    });
+
     app.get('/users/dashboard/selected-classes/:email', async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
