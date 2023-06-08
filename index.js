@@ -52,7 +52,6 @@ async function run() {
     app.post('/jwt', (req, res) => {
       const userEmail = req.body;
       const token = jwt.sign(userEmail, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
-      console.log(token);
       res.send({ token });
     });
 
@@ -72,7 +71,6 @@ async function run() {
 
     app.get('/roles/users/:email', verifyJWT, async (req, res) => {
       const email = req.params.email;
-      console.log(email);
 
       if (req.decoded.email !== email) {
         return res.status(403).status({ error: true, message: 'Access Forbidden' });
@@ -82,7 +80,6 @@ async function run() {
       //const result = { admin: user?.role === 'admin' };
       //const result = user?.role === 'admin';
       const result = { admin: user?.role === 'admin', instructor: user?.role === 'instructor' };
-      console.log(result);
       res.send(result);
     });
 
@@ -167,15 +164,36 @@ async function run() {
       res.send(result);
     });
 
-    app.patch('/users/select-classes', async (req, res) => {
+    app.get('/users/selected-classes/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      const result = user.selectedClasses;
+      res.send(result);
+    });
+
+    app.patch('/users/select-classes', verifyJWT, async (req, res) => {
       const selectedClass = req.body;
-      const query = { _id: new ObjectId(selectedClass.userId) };
-      console.log(query);
+      const query = { email: selectedClass.email };
       const updateUser = {
-        $push: { selectedClasses: classId }, // we use this when we need to push data into existing array
+        $push: { selectedClasses: selectedClass.classId }, // we use this when we need to push data into existing array
       };
-      console.log(updateUser);
       const result = await usersCollection.findOneAndUpdate(query, updateUser);
+      res.send(result);
+    });
+
+    app.get('/users/dashboard/selected-classes/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      const selectedClassIds = user.selectedClasses;
+
+      const classQuery = {
+        _id: {
+          $in: selectedClassIds.map((id) => new ObjectId(id)),
+        },
+      };
+      const result = await classesCollection.find(classQuery).toArray();
       res.send(result);
     });
 
