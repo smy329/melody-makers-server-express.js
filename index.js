@@ -70,7 +70,7 @@ async function run() {
       next();
     };
 
-    app.get('/admin/users/:email', verifyJWT, async (req, res) => {
+    app.get('/roles/users/:email', verifyJWT, async (req, res) => {
       const email = req.params.email;
       console.log(email);
 
@@ -81,25 +81,14 @@ async function run() {
       const user = await usersCollection.findOne(query);
       //const result = { admin: user?.role === 'admin' };
       //const result = user?.role === 'admin';
-      const result = { admin: user?.role === 'admin' };
+      const result = { admin: user?.role === 'admin', instructor: user?.role === 'instructor' };
       console.log(result);
       res.send(result);
     });
 
-    //users related api
-    app.get('/users', verifyJWT, verifyAdmin, async (req, res) => {
-      const result = await usersCollection.find().toArray();
-      res.send(result);
-    });
-
-    app.post('/users', async (req, res) => {
-      const user = req.body;
-      const query = { email: user.email };
-      const existingUser = await usersCollection.findOne(query);
-      if (existingUser) {
-        return res.send({ message: 'User already exists ' });
-      }
-      const result = await usersCollection.insertOne(user);
+    app.get('/classes', async (req, res) => {
+      const query = { status: 'approved' };
+      const result = await classesCollection.find(query).toArray();
       res.send(result);
     });
 
@@ -112,7 +101,7 @@ async function run() {
       const pipeline = [
         {
           $lookup: {
-            from: 'classes', // collection to join
+            from: 'classesCollection', // collection to join
             localField: 'email', //field from the input documents
             foreignField: 'instructorEmail', //field from the documents of the "from" collection
             as: 'classData', //output array field
@@ -138,7 +127,7 @@ async function run() {
       const pipeline = [
         {
           $lookup: {
-            from: 'classes', // collection to join
+            from: 'classesCollection', // collection to join
             localField: 'email', //field from the input documents
             foreignField: 'instructorEmail', //field from the documents of the "from" collection
             as: 'classData', //output array field
@@ -158,6 +147,35 @@ async function run() {
       ];
 
       const result = await instructorsCollection.aggregate(pipeline).toArray();
+      res.send(result);
+    });
+
+    //users related api
+    app.get('/users', verifyJWT, verifyAdmin, async (req, res) => {
+      const result = await usersCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.post('/users', async (req, res) => {
+      const user = req.body;
+      const query = { email: user.email };
+      const existingUser = await usersCollection.findOne(query);
+      if (existingUser) {
+        return res.send({ message: 'User already exists ' });
+      }
+      const result = await usersCollection.insertOne(user);
+      res.send(result);
+    });
+
+    app.patch('/users/select-classes', async (req, res) => {
+      const selectedClass = req.body;
+      const query = { _id: new ObjectId(selectedClass.userId) };
+      console.log(query);
+      const updateUser = {
+        $push: { selectedClasses: classId }, // we use this when we need to push data into existing array
+      };
+      console.log(updateUser);
+      const result = await usersCollection.findOneAndUpdate(query, updateUser);
       res.send(result);
     });
 
