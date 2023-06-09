@@ -172,6 +172,7 @@ async function run() {
       res.send(result);
     });
 
+    //push selected classes into DB
     app.patch('/users/select-classes', verifyJWT, async (req, res) => {
       const selectedClass = req.body;
       const query = { email: selectedClass.email };
@@ -183,7 +184,7 @@ async function run() {
     });
 
     //delete selected classes from user collection
-    app.patch('/users/selected-class', async (req, res) => {
+    app.patch('/users/selected-class', verifyJWT, async (req, res) => {
       const data = req.body;
       const query = { email: data.email };
       const updateUser = {
@@ -191,6 +192,24 @@ async function run() {
       };
       const result = await usersCollection.findOneAndUpdate(query, updateUser);
       res.send(result);
+    });
+
+    //push enrolled classes into DB
+    app.patch('/users/enrolled-classes', verifyJWT, async (req, res) => {
+      const enrolledClass = req.body;
+      const query = { email: enrolledClass.email };
+      const classQuery = { _id: new ObjectId(enrolledClass.classId) };
+      console.log(classQuery);
+      console.log(enrolledClass.classId);
+      const updateUser = {
+        $push: { enrolledClasses: enrolledClass.classId }, // we use this when we need to push data into existing array
+        $pull: { selectedClasses: enrolledClass.classId }, // we use this when we need to pull data into existing array
+      };
+
+      const updateSeat = { $inc: { enrolledStudents: 1 } };
+      const updateClasses = await classesCollection.findOneAndUpdate(classQuery, { $inc: { enrolledStudents: 1 } });
+      const updateUsers = await usersCollection.findOneAndUpdate(query, updateUser);
+      res.send({ updateClasses, updateUsers });
     });
 
     app.get('/users/dashboard/selected-classes/:email', async (req, res) => {
@@ -202,6 +221,21 @@ async function run() {
       const classQuery = {
         _id: {
           $in: selectedClassIds.map((id) => new ObjectId(id)),
+        },
+      };
+      const result = await classesCollection.find(classQuery).toArray();
+      res.send(result);
+    });
+
+    app.get('/users/dashboard/enrolled-classes/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      const enrolledClassIds = user.enrolledClasses;
+
+      const classQuery = {
+        _id: {
+          $in: enrolledClassIds.map((id) => new ObjectId(id)),
         },
       };
       const result = await classesCollection.find(classQuery).toArray();
