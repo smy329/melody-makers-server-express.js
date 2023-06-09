@@ -242,9 +242,20 @@ async function run() {
       res.send(result);
     });
 
+    app.get('/instructors/my-classes', async (req, res) => {});
+
     app.post('/instructors/add-class', async (req, res) => {
       const newClass = req.body;
-      const result = await classesCollection.insertOne(newClass);
+      const insertClass = await classesCollection.insertOne(newClass);
+
+      //retrive the generated _id
+      const newClassId = insertClass.insertedId.toString();
+      const query = { email: newClass.instructorEmail };
+      console.log(query);
+      const updateInstructor = {
+        $push: { classes: newClassId }, // we use this when we need to push data into existing array
+      };
+      const result = await usersCollection.findOneAndUpdate(query, updateInstructor);
       res.send(result);
     });
 
