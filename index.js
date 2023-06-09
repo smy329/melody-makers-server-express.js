@@ -212,6 +212,7 @@ async function run() {
       res.send({ updateClasses, updateUsers });
     });
 
+    //get selected classes for users
     app.get('/users/dashboard/selected-classes/:email', async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
@@ -227,6 +228,7 @@ async function run() {
       res.send(result);
     });
 
+    //get enrolled classes for users
     app.get('/users/dashboard/enrolled-classes/:email', async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
@@ -242,8 +244,23 @@ async function run() {
       res.send(result);
     });
 
-    app.get('/instructors/my-classes', async (req, res) => {});
+    //get myClasses for instructors
+    app.get('/instructors/dashboard/my-classes/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      const classIds = user.classes;
 
+      const classQuery = {
+        _id: {
+          $in: classIds.map((id) => new ObjectId(id)),
+        },
+      };
+      const result = await classesCollection.find(classQuery).toArray();
+      res.send(result);
+    });
+
+    // add new classes from instructor panel
     app.post('/instructors/add-class', async (req, res) => {
       const newClass = req.body;
       const insertClass = await classesCollection.insertOne(newClass);
