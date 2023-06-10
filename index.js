@@ -42,7 +42,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    //await client.connect();
 
     const usersCollection = client.db('melodyMakersCampDB').collection('users');
     const classesCollection = client.db('melodyMakersCampDB').collection('classes');
@@ -82,6 +82,12 @@ async function run() {
       const result = { admin: user?.role === 'admin', instructor: user?.role === 'instructor' };
       res.send(result);
     });
+
+    /**
+     *
+     * =============================== PUBLIC API ===========================
+     *
+     */
 
     app.get('/classes', async (req, res) => {
       const query = { status: 'approved' };
@@ -147,20 +153,22 @@ async function run() {
       res.send(result);
     });
 
-    //users related api
-    app.get('/users', verifyJWT, verifyAdmin, async (req, res) => {
-      const result = await usersCollection.find().toArray();
-      res.send(result);
-    });
+    /**
+     *
+     * ======================== USER API =========================================
+     *
+     */
 
+    //registering users
     app.post('/users', async (req, res) => {
-      const user = req.body;
-      const query = { email: user.email };
+      const userData = req.body;
+      console.log(userData);
+      const query = { email: userData.email };
       const existingUser = await usersCollection.findOne(query);
       if (existingUser) {
         return res.send({ message: 'User already exists ' });
       }
-      const result = await usersCollection.insertOne(user);
+      const result = await usersCollection.insertOne(userData);
       res.send(result);
     });
 
@@ -217,7 +225,7 @@ async function run() {
       const email = req.params.email;
       const query = { email: email };
       const user = await usersCollection.findOne(query);
-      const selectedClassIds = user.selectedClasses;
+      const selectedClassIds = user?.selectedClasses || [];
 
       const classQuery = {
         _id: {
@@ -233,7 +241,7 @@ async function run() {
       const email = req.params.email;
       const query = { email: email };
       const user = await usersCollection.findOne(query);
-      const enrolledClassIds = user.enrolledClasses;
+      const enrolledClassIds = user?.enrolledClasses || [];
 
       const classQuery = {
         _id: {
@@ -244,12 +252,18 @@ async function run() {
       res.send(result);
     });
 
+    /**
+     *
+     * ===================== Instructor Panel Api=========================================
+     *
+     */
+
     //get myClasses for instructors
     app.get('/instructors/dashboard/my-classes/:email', async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       const user = await usersCollection.findOne(query);
-      const classIds = user.classes;
+      const classIds = user?.classes || [];
 
       const classQuery = {
         _id: {
@@ -273,6 +287,50 @@ async function run() {
         $push: { classes: newClassId }, // we use this when we need to push data into existing array
       };
       const result = await usersCollection.findOneAndUpdate(query, updateInstructor);
+      res.send(result);
+    });
+
+    /**
+     *
+     * ========================= ADMIN API ======================================
+     *
+     * * */
+
+    // getting all users
+    app.get('/manage-users', verifyJWT, verifyAdmin, async (req, res) => {
+      const result = await usersCollection.find().toArray();
+      res.send(result);
+    });
+
+    //updating user role
+    app.patch('/manage-users/role', verifyJWT, verifyAdmin, async (req, res) => {
+      const data = req.body;
+      const query = { email: data.email };
+      const updateUser = {
+        $set: {
+          role: data.role,
+        },
+      };
+      const result = await usersCollection.findOneAndUpdate(query, updateUser);
+      res.send(result);
+    });
+
+    //getting all classes Available
+    app.get('/manage-classes', async (req, res) => {
+      const result = await classesCollection.find().toArray();
+      res.send(result);
+    });
+
+    //updating class status
+    app.patch('/manage-classes/status', verifyJWT, verifyAdmin, async (req, res) => {
+      const data = req.body;
+      const query = { _id: new ObjectId(data.classId) };
+      const updateClass = {
+        $set: {
+          status: data.status,
+        },
+      };
+      const result = await classesCollection.findOneAndUpdate(query, updateClass);
       res.send(result);
     });
 
