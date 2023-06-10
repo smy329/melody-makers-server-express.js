@@ -334,6 +334,22 @@ async function run() {
       res.send(result);
     });
 
+    //updating class feedback
+    app.patch('/manage-classes/feedback', verifyJWT, verifyAdmin, async (req, res) => {
+      const data = req.body;
+      const query = { _id: new ObjectId(data.classId) };
+
+      const updateClass = {
+        $set: {
+          feedback: data.feedback,
+        },
+      };
+      console.log(data, updateClass);
+      const result = await classesCollection.findOneAndUpdate(query, updateClass);
+      console.log(result);
+      res.send(result);
+    });
+
     // Send a ping to confirm a successful connection
     await client.db('admin').command({ ping: 1 });
     console.log('Pinged your deployment. You successfully connected to MongoDB!');
