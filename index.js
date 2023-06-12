@@ -70,6 +70,18 @@ async function run() {
       next();
     };
 
+    // const verifyInstructor = async (req, res, next) => {
+    //   const email = req.decoded.email;
+    //   const query = { email: email };
+    //   const user = await usersCollection.findOne(query);
+    //   if (user?.role !== 'instructor') {
+    //     return res.status(403).send({ error: true, message: 'Forbidden Access' });
+    //   }
+
+    //   //next() means you can proceed
+    //   next();
+    // };
+
     app.get('/roles/users/:email', verifyJWT, async (req, res) => {
       const email = req.params.email;
 
@@ -283,6 +295,14 @@ async function run() {
       // const query = { _id: { $in: payment.cartItems.map((id) => new ObjectId(id)) } };
       // const deletedResult = await cartCollection.deleteMany(query);
       // res.send({ result: insertResult, deletedResult });
+    });
+
+    //get users payment history
+    app.get('/users/payments/:email', verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await paymentCollection.find(query).toArray();
+      res.send(result);
     });
 
     /**
