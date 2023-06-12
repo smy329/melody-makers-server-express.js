@@ -47,6 +47,7 @@ async function run() {
     const usersCollection = client.db('melodyMakersCampDB').collection('users');
     const classesCollection = client.db('melodyMakersCampDB').collection('classes');
     const instructorsCollection = client.db('melodyMakersCampDB').collection('instructors');
+    const paymentCollection = client.db('melodyMakersCampDB').collection('payments');
 
     //jwt
     app.post('/jwt', (req, res) => {
@@ -96,15 +97,20 @@ async function run() {
     });
 
     app.get('/popular-classes', async (req, res) => {
+      console.log('hitted');
       const result = await classesCollection.find().sort({ enrolledStudents: -1 }).limit(6).toArray();
       res.send(result);
     });
 
     app.get('/instructors', async (req, res) => {
+      const query = { role: 'instructor' };
       const pipeline = [
         {
+          $match: query,
+        },
+        {
           $lookup: {
-            from: 'classesCollection', // collection to join
+            from: 'classes', // collection to join
             localField: 'email', //field from the input documents
             foreignField: 'instructorEmail', //field from the documents of the "from" collection
             as: 'classData', //output array field
@@ -115,22 +121,20 @@ async function run() {
             totalStudents: { $sum: '$classData.enrolledStudents' }, //add this field into output array
           },
         },
-        {
-          $sort: { totalStudents: -1 },
-        },
-        {
-          $limit: 6,
-        },
       ];
-      const result = await instructorsCollection.aggregate(pipeline).toArray();
+      const result = await usersCollection.aggregate(pipeline).toArray();
       res.send(result);
     });
 
     app.get('/popular-instructors', async (req, res) => {
+      const query = { role: 'instructor' };
       const pipeline = [
         {
+          $match: query,
+        },
+        {
           $lookup: {
-            from: 'classesCollection', // collection to join
+            from: 'classes', // collection to join
             localField: 'email', //field from the input documents
             foreignField: 'instructorEmail', //field from the documents of the "from" collection
             as: 'classData', //output array field
@@ -149,7 +153,7 @@ async function run() {
         },
       ];
 
-      const result = await instructorsCollection.aggregate(pipeline).toArray();
+      const result = await usersCollection.aggregate(pipeline).toArray();
       res.send(result);
     });
 
@@ -252,6 +256,35 @@ async function run() {
       res.send(result);
     });
 
+    //create payment intent
+    app.post('/create-payment-intent', verifyJWT, async (req, res) => {
+      const { price } = req.body;
+      const amount = price * 100;
+      console.log(amount, price);
+
+      // Create a PaymentIntent with the order amount and currency
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: 'usd',
+        payment_method_types: ['card'],
+      });
+
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+    //storing payment infos
+    app.post('/users/payments', verifyJWT, async (req, res) => {
+      const payment = req.body;
+      console.log(payment.transactionId);
+      const insertResult = await paymentCollection.insertOne(payment);
+      res.send(insertResult);
+      // const query = { _id: { $in: payment.cartItems.map((id) => new ObjectId(id)) } };
+      // const deletedResult = await cartCollection.deleteMany(query);
+      // res.send({ result: insertResult, deletedResult });
+    });
+
     /**
      *
      * ===================== Instructor Panel Api=========================================
@@ -344,9 +377,7 @@ async function run() {
           feedback: data.feedback,
         },
       };
-      console.log(data, updateClass);
       const result = await classesCollection.findOneAndUpdate(query, updateClass);
-      console.log(result);
       res.send(result);
     });
 
